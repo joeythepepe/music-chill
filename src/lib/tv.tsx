@@ -40,7 +40,7 @@ const TvContext = createContext<TvContextValue | null>(null);
 
 export function TvProvider({ children }: { children: ReactNode }) {
   const [volume, setVolumeState] = useState(0.7);
-  const [theme, setTheme] = useState("ice");
+  const [theme, setTheme] = useState("calm");
   const [staticKey, setStaticKey] = useState(0);
   const [power, setPower] = useState<"idle" | "on" | "off">("idle");
   const powerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);

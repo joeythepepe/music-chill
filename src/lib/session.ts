@@ -6,13 +6,13 @@ const STATE_KEY = "chillos:state";
 export const CALLSIGN = "GUEST"; // no login — everyone is a guest operator
 
 export interface PersistedState {
-  mood: string; // "ALL" or one of MOODS
+  mood: string; // one of MOODS
   trackId: string | null;
   volume: number; // 0..1
 }
 
 export const DEFAULT_STATE: PersistedState = {
-  mood: "ALL",
+  mood: "CALM",
   trackId: null,
   volume: 0.7,
 };

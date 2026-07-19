@@ -15,15 +15,6 @@
 }
 
 /* ─── per-mood themes (monochrome discipline, one hue each) ── */
-/* ice (default): ALL · NIGHT — original phosphor cyan        */
-[data-theme="rain"] {
-  --color-ice: #9fd4e8;
-  --color-glow: #5fc4de;
-  --color-fg: #d4ebf5;
-  --color-dim: #4d6a7c;
-  --color-line: #16283a;
-  --color-linehi: #2a4a62;
-}
 [data-theme="calm"] {
   --color-ice: #c2ffd6;
   --color-glow: #4dff88;
@@ -32,29 +23,29 @@
   --color-line: #14301f;
   --color-linehi: #2a5a3c;
 }
-[data-theme="deep"] {
-  --color-ice: #ffdcaa;
-  --color-glow: #ffb347;
-  --color-fg: #f5e9d4;
-  --color-dim: #8a7350;
-  --color-line: #33270f;
-  --color-linehi: #5a4520;
+[data-theme="space"] {
+  --color-ice: #c4b5fd;
+  --color-glow: #a78bfa;
+  --color-fg: #e9e4f7;
+  --color-dim: #6b5f8a;
+  --color-line: #1f1633;
+  --color-linehi: #3d2a5a;
 }
-[data-theme="dream"] {
-  --color-ice: #ffc9ef;
-  --color-glow: #ff7ad9;
-  --color-fg: #f5dff0;
-  --color-dim: #8a6080;
-  --color-line: #331430;
-  --color-linehi: #5a2450;
-}
-[data-theme="drive"] {
+[data-theme="cyberpunk"] {
   --color-ice: #ffc6cc;
   --color-glow: #ff4d5e;
   --color-fg: #f5dfe1;
   --color-dim: #8a555a;
   --color-line: #331216;
   --color-linehi: #5a2028;
+}
+[data-theme="rain"] {
+  --color-ice: #9fd4e8;
+  --color-glow: #5fc4de;
+  --color-fg: #d4ebf5;
+  --color-dim: #4d6a7c;
+  --color-line: #16283a;
+  --color-linehi: #2a4a62;
 }
 
 .font-pixel {
@@ -244,6 +235,239 @@ body {
   border-radius: inherit;
 }
 
+/* Mood video loop — drifting grain (CSS-only, no second asset) */
+.mood-video-grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+  animation: moodGrain 8s steps(8) infinite;
+  mix-blend-mode: overlay;
+}
+@keyframes moodGrain {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(-3%, 2%); }
+  50% { transform: translate(2%, -2%); }
+  75% { transform: translate(-1%, 3%); }
+  100% { transform: translate(0, 0); }
+}
+
+/* SCR theater: soft edge fade only — no square crop, full-bleed feed */
+.theater-edge-fade {
+  pointer-events: none;
+  background: radial-gradient(
+    120% 100% at 50% 48%,
+    transparent 55%,
+    rgba(0, 0, 0, 0.28) 82%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+}
+
+/* Portaled SCR stage — always the full browser window (incl. ultrawide).
+   Escapes the 4:3 .crt-box letterbox that wraps the normal UI. */
+.theater-stage {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  width: 100vw;
+  width: 100dvw;
+  height: 100vh;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  background: #000;
+  overflow: hidden;
+}
+
+.theater-visual {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  will-change: filter, transform;
+}
+
+.theater-visual canvas,
+.theater-visual video,
+.theater-visual img {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: fill;
+}
+
+/* ── SCR full-screen CRT flicker stack ───────────────────── */
+@keyframes theaterVisualPulse {
+  0%,
+  100% {
+    filter: brightness(1) contrast(1);
+  }
+  8% {
+    filter: brightness(1.05) contrast(1.03);
+  }
+  10% {
+    filter: brightness(0.9) contrast(1.06);
+  }
+  12% {
+    filter: brightness(1.02);
+  }
+  48% {
+    filter: brightness(1);
+  }
+  61% {
+    filter: brightness(1.04);
+  }
+  63% {
+    filter: brightness(0.86) contrast(1.1);
+  }
+  65% {
+    filter: brightness(1.03);
+  }
+  88% {
+    filter: brightness(0.97);
+  }
+}
+
+/* soft phosphor glow flicker (theme-tinted via currentColor-ish white + blend) */
+@keyframes theaterFlicker {
+  0%,
+  100% {
+    opacity: 0.03;
+  }
+  15% {
+    opacity: 0.08;
+  }
+  18% {
+    opacity: 0.02;
+  }
+  40% {
+    opacity: 0.06;
+  }
+  55% {
+    opacity: 0.035;
+  }
+  70% {
+    opacity: 0.1;
+  }
+  72% {
+    opacity: 0.015;
+  }
+  85% {
+    opacity: 0.05;
+  }
+}
+.theater-flicker {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: color-mix(in srgb, var(--color-glow) 55%, #fff);
+  mix-blend-mode: soft-light;
+  animation: theaterFlicker 3.2s steps(14) infinite;
+}
+
+/* rare hard flash / blackout frames */
+@keyframes theaterFlash {
+  0%,
+  89%,
+  100% {
+    opacity: 0;
+  }
+  90% {
+    opacity: 0.14;
+    background: #fff;
+  }
+  91% {
+    opacity: 0;
+  }
+  94% {
+    opacity: 0.22;
+    background: #000;
+  }
+  95% {
+    opacity: 0;
+  }
+  97% {
+    opacity: 0.1;
+    background: color-mix(in srgb, var(--color-glow) 40%, #fff);
+  }
+  98% {
+    opacity: 0;
+  }
+}
+.theater-flash {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  background: #fff;
+  animation: theaterFlash 9.5s steps(1) infinite;
+}
+
+/* rolling refresh band — stronger than main CRT for movie mode */
+@keyframes theaterBand {
+  0% {
+    transform: translateY(-40%);
+    opacity: 0;
+  }
+  6% {
+    opacity: 0.7;
+  }
+  94% {
+    opacity: 0.55;
+  }
+  100% {
+    transform: translateY(1200%);
+    opacity: 0;
+  }
+}
+.theater-band-wrap {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  overflow: hidden;
+}
+.theater-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 12%;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    color-mix(in srgb, var(--color-glow) 12%, transparent) 40%,
+    color-mix(in srgb, var(--color-ice) 8%, transparent) 55%,
+    transparent 100%
+  );
+  animation: theaterBand 5.5s linear infinite;
+}
+
+/* occasional horizontal jitter on the whole feed */
+@keyframes theaterJitter {
+  0%,
+  92%,
+  100% {
+    transform: translate(0, 0);
+  }
+  93% {
+    transform: translate(-2px, 1px) skewX(-0.2deg);
+  }
+  94% {
+    transform: translate(2px, -1px);
+  }
+  95% {
+    transform: translate(-1px, 0);
+  }
+  96% {
+    transform: translate(0, 0);
+  }
+}
+.theater-stage .theater-visual {
+  animation:
+    theaterVisualPulse 3.6s steps(10) infinite,
+    theaterJitter 11s steps(1) infinite;
+}
+
 .ovl-glass {
   background: linear-gradient(
     115deg,
@@ -425,6 +649,84 @@ body {
   animation: term-in 0.22s ease-out both;
 }
 
+/* ─── about “!” badge + popover ───────────────────────────── */
+.about-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border: 2px solid var(--color-linehi);
+  border-radius: 9999px;
+  color: var(--color-ice);
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0;
+  background: var(--color-panel2);
+  box-shadow: 0 0 0 1px var(--color-void), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background-color 140ms,
+    color 140ms,
+    border-color 140ms,
+    box-shadow 140ms;
+}
+.about-badge:hover,
+.about-badge-on {
+  border-color: var(--color-glow);
+  background: var(--color-glow);
+  color: #05070c;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-glow) 45%, transparent);
+}
+.about-badge:focus-visible {
+  outline: 1px solid var(--color-glow);
+  outline-offset: 2px;
+}
+
+.about-pop {
+  position: relative;
+  animation: aboutPopIn 0.16s ease-out both;
+}
+@keyframes aboutPopIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.about-tick {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-color: var(--color-glow);
+  border-style: solid;
+  pointer-events: none;
+}
+.about-tick-tl {
+  top: -1px;
+  left: -1px;
+  border-width: 2px 0 0 2px;
+}
+.about-tick-tr {
+  top: -1px;
+  right: -1px;
+  border-width: 2px 2px 0 0;
+}
+.about-tick-bl {
+  bottom: -1px;
+  left: -1px;
+  border-width: 0 0 2px 2px;
+}
+.about-tick-br {
+  bottom: -1px;
+  right: -1px;
+  border-width: 0 2px 2px 0;
+}
+
 /* on-screen buttons (inside the CRT picture) */
 .btn-hud {
   border: 1px solid var(--color-line);
@@ -437,6 +739,14 @@ body {
   user-select: none;
 }
 .btn-hud:hover:not(:disabled) {
+  background: var(--color-glow);
+  border-color: var(--color-glow);
+  color: #05070c;
+}
+/* Solid active state (PIN, PLAY, selected chips using btn-hud).
+   Must beat .btn-hud { color: ice } — light-on-glow was unreadable. */
+.btn-hud-on,
+.btn-hud.btn-hud-on:hover:not(:disabled) {
   background: var(--color-glow);
   border-color: var(--color-glow);
   color: #05070c;
@@ -490,11 +800,50 @@ input.hud-input::placeholder {
   background: transparent;
 }
 
+/* ─── full-mode mobile landscape force ───────────────────────
+   When Window/Screen full is active on a portrait phone and the
+   Orientation API won't lock, rotate the stage into landscape so
+   the UI reads as a horizontal "movie" frame.
+   Window → whole CRT UI; Screen → theater overlay only (avoid
+   double-rotate).                                               */
+@media (max-width: 900px) and (orientation: portrait) {
+  html[data-full="window"] .crt-stage,
+  html[data-full="screen"] .theater-stage {
+    position: fixed !important;
+    inset: auto !important;
+    top: 50% !important;
+    left: 50% !important;
+    width: 100dvh !important;
+    height: 100dvw !important;
+    max-width: none !important;
+    max-height: none !important;
+    transform: translate(-50%, -50%) rotate(90deg);
+    transform-origin: center center;
+    overflow: hidden;
+  }
+
+  html[data-full="window"] .crt-stage {
+    z-index: 80;
+  }
+
+  html[data-full="screen"] .theater-stage {
+    z-index: 90;
+  }
+}
+
 /* ─── reduced motion: kill flicker / band / wobble / drift ── */
 @media (prefers-reduced-motion: reduce) {
   .crt-flicker,
-  .crt-band {
+  .crt-band,
+  .theater-flicker,
+  .theater-flash,
+  .theater-band {
     display: none;
+  }
+  .theater-visual,
+  .theater-stage .theater-visual {
+    animation: none !important;
+    filter: none !important;
   }
   .sync-wobble {
     animation: none !important;

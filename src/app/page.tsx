@@ -1,16 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import HudPanel from "@/components/HudPanel";
 import StatusBar from "@/components/StatusBar";
 import SegmentedBar from "@/components/SegmentedBar";
 import VisualCanvas from "@/components/VisualCanvas";
 import Equalizer from "@/components/Equalizer";
-import TestCard from "@/components/TestCard";
 import MoodIcon from "@/components/MoodIcon";
 import {
   MOODS,
   MOOD_COVERS,
+  TRACKS,
   filterTracks,
   formatTime,
   moodTheme,
@@ -20,13 +21,71 @@ import {
 import { CALLSIGN, getState, saveState } from "@/lib/session";
 import { useNoiseEngine } from "@/lib/noiseEngine";
 import { useTv } from "@/lib/tv";
+import {
+  enterFullMode,
+  leaveFullMode,
+  type FullMode,
+} from "@/lib/fullscreen";
 
 const SLEEP_OPTIONS = [15, 30, 60];
 
 /**
  * Visual priority:
  *   mood cover video → track.art / mood cover image →
- *   NO SIGNAL test card (music track, missing file) → generated animation
+ *   generated mood animation (always — never blank on music tracks)
+ *   optional NO SIGNAL badge when the tape file is missing
+ */
+/** CRT / phosphor stack shared by mood video + still covers */
+function PhosphorOverlays() {
+  return (
+    <>
+      {/* theme-tinted phosphor wash */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{ background: "var(--color-glow)", mixBlendMode: "color", opacity: 0.42 }}
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{ background: "var(--color-glow)", mixBlendMode: "overlay", opacity: 0.22 }}
+        aria-hidden
+      />
+      {/* fine scanlines */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-40"
+        style={{
+          background:
+            "repeating-linear-gradient(0deg, rgba(0,0,0,0.35) 0px, rgba(0,0,0,0.35) 1px, transparent 1px, transparent 3px)",
+        }}
+        aria-hidden
+      />
+      {/* RGB fringe (cheap chromatic aberration) */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-30 mix-blend-screen"
+        style={{
+          boxShadow:
+            "inset 1px 0 0 rgba(255,80,100,0.35), inset -1px 0 0 rgba(80,200,255,0.25)",
+        }}
+        aria-hidden
+      />
+      {/* soft vignette */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(ellipse 75% 75% at 50% 50%, transparent 45%, rgba(0,0,0,0.55) 100%)",
+        }}
+        aria-hidden
+      />
+    </>
+  );
+}
+
+/**
+ * Visual priority:
+ *   mood cover video (+ CRT CSS stack) → track.art / mood cover image →
+ *   generated mood animation
+ *   optional NO SIGNAL badge when the tape file is missing
  */
 function VisualFeed({
   track,
@@ -34,27 +93,67 @@ function VisualFeed({
   playing,
   noSignal,
   themeKey,
+  /** full-bleed animation for SCR theater (no square mask) */
+  coverLayout = false,
 }: {
   track: Track;
   mood: string;
   playing: boolean;
   noSignal: boolean;
   themeKey: string;
+  coverLayout?: boolean;
 }) {
   const cover = MOOD_COVERS[mood];
   const [imgOk, setImgOk] = useState(true);
+  const [videoOk, setVideoOk] = useState(true);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   useEffect(() => setImgOk(true), [track.id, mood]);
+  useEffect(() => setVideoOk(true), [mood, cover?.video]);
 
-  if (cover?.video) {
+  // Prefer the selected mood's visual; fall back to the playing track's kind
+  // so CYBERPUNK always gets "drive" even while another track still plays.
+  const kind = moodVisual(mood) || track.visual || "wave";
+
+  // Sync mood-loop video with transport (pause when user pauses)
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (playing) {
+      v.play().catch(() => {});
+    } else {
+      v.pause();
+    }
+  }, [playing, cover?.video, videoOk]);
+
+  if (cover?.video && videoOk) {
     return (
-      <video
-        src={cover.video}
-        autoPlay
-        muted
-        loop
-        playsInline
-        className="pixelated h-full w-full object-cover"
-      />
+      <div className="mood-video relative h-full w-full overflow-hidden bg-black">
+        <video
+          ref={videoRef}
+          src={cover.video}
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          onError={() => setVideoOk(false)}
+          className="pixelated absolute inset-0 h-full w-full object-cover"
+          style={{
+            // hard pixel look + slight punch for B&W loops under phosphor wash
+            filter: "contrast(1.2) brightness(0.92) saturate(0.15)",
+          }}
+        />
+        <PhosphorOverlays />
+        {/* slow drifting CRT noise grain */}
+        <div className="mood-video-grain pointer-events-none absolute inset-0 opacity-[0.07]" aria-hidden />
+        {noSignal && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-6 z-10 flex justify-center">
+            <span className="border border-linehi bg-void/80 px-2 py-1 font-pixel text-[9px] tracking-widest text-ice/90">
+              NO SIGNAL
+            </span>
+          </div>
+        )}
+      </div>
     );
   }
 
@@ -70,25 +169,27 @@ function VisualFeed({
           className="pixelated h-full w-full object-cover"
           style={{ filter: "grayscale(0.45) contrast(1.15) brightness(0.85)" }}
         />
-        {/* phosphor duotone wash — follows the active theme */}
-        <div
-          className="absolute inset-0"
-          style={{ background: "var(--color-glow)", mixBlendMode: "color", opacity: 0.35 }}
-          aria-hidden
-        />
-        <div
-          className="absolute inset-0"
-          style={{ background: "var(--color-glow)", mixBlendMode: "overlay", opacity: 0.25 }}
-          aria-hidden
-        />
+        <PhosphorOverlays />
       </div>
     );
   }
 
-  if (noSignal) return <TestCard />;
-
   return (
-    <VisualCanvas kind={moodVisual(mood)} playing={playing} themeKey={themeKey} />
+    <div className="relative h-full w-full">
+      <VisualCanvas
+        kind={kind}
+        playing={playing}
+        themeKey={themeKey}
+        layout={coverLayout ? "cover" : "square"}
+      />
+      {noSignal && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-6 flex justify-center">
+          <span className="border border-linehi bg-void/80 px-2 py-1 font-pixel text-[9px] tracking-widest text-ice/90">
+            NO SIGNAL
+          </span>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -102,7 +203,7 @@ export default function MainScreen() {
   } = useTv();
 
   const [ready, setReady] = useState(false);
-  const [mood, setMood] = useState("ALL");
+  const [mood, setMood] = useState(MOODS[0]);
   const [trackId, setTrackId] = useState<string | null>(null);
 
   const [playing, setPlaying] = useState(false);
@@ -112,16 +213,26 @@ export default function MainScreen() {
 
   const [sleepMin, setSleepMin] = useState<number | null>(null);
   const [sleepLeft, setSleepLeft] = useState(0);
-  const [theater, setTheater] = useState(false);
+  /** none | window (browser FS, normal UI) | screen (movie theater FS) */
+  const [fullMode, setFullMode] = useState<FullMode>("none");
+  /** SCR dock: pin keeps HUD visible; unpinned auto-hides after idle */
+  const [panelPinned, setPanelPinned] = useState(false);
+  const [panelVisible, setPanelVisible] = useState(true);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const sleepEndRef = useRef<number | null>(null);
+  const fullModeRef = useRef<FullMode>("none");
+  const panelPinnedRef = useRef(false);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  fullModeRef.current = fullMode;
+  panelPinnedRef.current = panelPinned;
 
-  // ── restore persisted state (mood migrated to ALL if unknown) ──
+  // ── restore persisted state (unknown / legacy moods → first mood) ──
   useEffect(() => {
     const s = getState();
-    const validMood =
-      s.mood === "ALL" || MOODS.includes(s.mood) ? s.mood : "ALL";
+    const validMood = (MOODS as readonly string[]).includes(s.mood)
+      ? s.mood
+      : MOODS[0];
     setMood(validMood);
     setTheme(moodTheme(validMood));
     const q = filterTracks(validMood);
@@ -131,12 +242,14 @@ export default function MainScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Playlist is mood-filtered; the playing track is global (survives mood changes).
   const queue = useMemo(() => filterTracks(mood), [mood]);
-  const trackIndex = Math.max(
-    0,
-    queue.findIndex((t) => t.id === trackId),
+  const track: Track | undefined = useMemo(
+    () => TRACKS.find((t) => t.id === trackId),
+    [trackId],
   );
-  const track: Track | undefined = queue[trackIndex];
+  /** index in the current mood playlist; -1 if now-playing is from another mood */
+  const trackIndex = queue.findIndex((t) => t.id === trackId);
   // playback behavior is derived from the ACTIVE TRACK
   const isNoise = track?.category === "noise";
 
@@ -171,7 +284,13 @@ export default function MainScreen() {
     const onTime = () => {
       if (!Number.isNaN(a.currentTime)) setElapsed(a.currentTime);
     };
-    const onEnded = () => selectTrack((trackIndex + 1) % queue.length, true);
+    const onEnded = () => {
+      // advance within the mood filter list when possible; otherwise first of filter
+      const idx = queue.findIndex((t) => t.id === trackId);
+      if (queue.length === 0) return;
+      const next = idx >= 0 ? (idx + 1) % queue.length : 0;
+      selectTrack(next, true);
+    };
 
     a.addEventListener("loadedmetadata", onMeta);
     a.addEventListener("error", onError);
@@ -217,7 +336,12 @@ export default function MainScreen() {
         const next = e + 0.5;
         if (next >= duration) {
           if (isNoise) return 0; // endless ambience loops
-          setTimeout(() => selectTrack((trackIndex + 1) % queue.length, true), 0);
+          setTimeout(() => {
+            const idx = queue.findIndex((t) => t.id === trackId);
+            if (queue.length === 0) return;
+            const nextIdx = idx >= 0 ? (idx + 1) % queue.length : 0;
+            selectTrack(nextIdx, true);
+          }, 0);
           return 0;
         }
         return next;
@@ -261,7 +385,9 @@ export default function MainScreen() {
     (d: 1 | -1) => {
       if (queue.length === 0) return;
       staticBurst();
-      selectTrack((trackIndex + d + queue.length) % queue.length, true);
+      // If now-playing isn't in this mood list, prev/next enters the filtered list.
+      const idx = trackIndex >= 0 ? trackIndex : d === 1 ? -1 : 0;
+      selectTrack((idx + d + queue.length) % queue.length, true);
     },
     [queue.length, trackIndex, selectTrack, staticBurst],
   );
@@ -270,7 +396,89 @@ export default function MainScreen() {
     if (track) setPlaying((p) => !p);
   }, [track]);
 
-  // Space = play/pause · Esc = exit theater
+  // ── SCR control panel: pin = always on; unpinned = hide after 20s idle ──
+  const clearIdleTimer = useCallback(() => {
+    if (idleTimerRef.current != null) {
+      clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = null;
+    }
+  }, []);
+
+  const bumpTheaterPanel = useCallback(() => {
+    setPanelVisible(true);
+    clearIdleTimer();
+    if (panelPinnedRef.current || fullModeRef.current !== "screen") return;
+    idleTimerRef.current = setTimeout(() => {
+      if (!panelPinnedRef.current && fullModeRef.current === "screen") {
+        setPanelVisible(false);
+      }
+    }, 20_000);
+  }, [clearIdleTimer]);
+
+  useEffect(() => {
+    if (fullMode !== "screen") {
+      clearIdleTimer();
+      setPanelVisible(true);
+      return;
+    }
+    // enter SCR or pin toggle — show panel and (re)arm idle timer
+    bumpTheaterPanel();
+    return () => clearIdleTimer();
+  }, [fullMode, panelPinned, bumpTheaterPanel, clearIdleTimer]);
+
+  // ── full modes: Window (browser FS) · Screen (movie theater) · Esc exits ──
+  const exitFull = useCallback(async () => {
+    setFullMode("none");
+    clearIdleTimer();
+    await leaveFullMode();
+  }, [clearIdleTimer]);
+
+  const enterFull = useCallback(
+    async (mode: "window" | "screen") => {
+      if (fullModeRef.current === mode) {
+        await exitFull();
+        return;
+      }
+      setFullMode(mode);
+      await enterFullMode(mode);
+    },
+    [exitFull],
+  );
+
+  // browser chrome / system Esc may drop native FS without our key handler
+  useEffect(() => {
+    const onFsChange = () => {
+      if (!document.fullscreenElement && fullModeRef.current !== "none") {
+        setFullMode("none");
+        delete document.documentElement.dataset.full;
+        try {
+          screen.orientation?.unlock?.();
+        } catch {
+          /* ignore */
+        }
+      }
+    };
+    document.addEventListener("fullscreenchange", onFsChange);
+    document.addEventListener("webkitfullscreenchange", onFsChange as EventListener);
+    return () => {
+      document.removeEventListener("fullscreenchange", onFsChange);
+      document.removeEventListener(
+        "webkitfullscreenchange",
+        onFsChange as EventListener,
+      );
+    };
+  }, []);
+
+  // keep data-full in sync (CSS landscape force) + cleanup on unmount
+  useEffect(() => {
+    if (fullMode === "none") delete document.documentElement.dataset.full;
+    else document.documentElement.dataset.full = fullMode;
+    return () => {
+      delete document.documentElement.dataset.full;
+    };
+  }, [fullMode]);
+
+  // Space = play/pause · Esc = exit either full mode
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
@@ -278,46 +486,27 @@ export default function MainScreen() {
       if (e.code === "Space") {
         e.preventDefault();
         togglePlay();
-      } else if (e.key === "Escape") {
-        setTheater(false);
+      } else if (e.key === "Escape" && fullModeRef.current !== "none") {
+        e.preventDefault();
+        void exitFull();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [togglePlay]);
+  }, [togglePlay, exitFull]);
 
-  // ── mood filter: retheme the whole site + channel-change static ──
+  // ── mood filter: retheme + filter playlist only — do NOT stop/change track ──
   const pickMood = useCallback(
     (m: string) => {
       if (m === mood) return;
       staticBurst();
       setMood(m);
       setTheme(moodTheme(m));
-      const q = filterTracks(m);
-      setTrackId(q[0]?.id ?? null);
-      setElapsed(0);
-      saveState({ mood: m, trackId: q[0]?.id ?? null });
+      // Keep trackId + playing state; user must pick a track to switch audio.
+      saveState({ mood: m });
     },
     [mood, staticBurst, setTheme],
   );
-
-  // ── theater mode (overlay + best-effort native fullscreen) ──
-  const openTheater = () => {
-    setTheater(true);
-    try {
-      document.documentElement.requestFullscreen?.().catch(() => {});
-    } catch {
-      /* overlay still works */
-    }
-  };
-  const closeTheater = useCallback(() => {
-    setTheater(false);
-    try {
-      if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
-    } catch {
-      /* ignore */
-    }
-  }, []);
 
   const seek = (ratio: number) => {
     const sec = ratio * duration;
@@ -353,20 +542,22 @@ export default function MainScreen() {
   const noSignal = track?.category === "music" && simulated;
   const sourceTag = isNoise ? "SYNTH ENGINE" : noSignal ? "NO SIGNAL" : "LIVE TAPE";
 
-  const moodChips = (compact = false) => (
-    <div className={`grid grid-cols-4 gap-1.5 ${compact ? "sm:grid-cols-7" : ""}`}>
-      {["ALL", ...MOODS].map((m) => (
+  const moodChips = (highContrast = false) => (
+    <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+      {MOODS.map((m) => (
         <button
           key={m}
           onClick={() => pickMood(m)}
-          className={`flex items-center justify-center gap-1.5 border px-1 py-2 font-pixel text-[11px] tracking-widest transition-colors duration-150 focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-glow ${
+          className={`flex items-center justify-center gap-1.5 border px-1 py-2 font-pixel text-[10px] tracking-wider transition-colors duration-150 focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-glow sm:text-[11px] ${
             mood === m
               ? "border-glow bg-glow text-void"
-              : "border-line text-ice hover:border-linehi hover:bg-panel2"
+              : highContrast
+                ? "border-linehi/80 bg-panel2/90 text-ice hover:border-glow hover:bg-panel hover:text-fg"
+                : "border-line text-ice hover:border-linehi hover:bg-panel2"
           }`}
         >
           <MoodIcon mood={m} />
-          <span>{m}</span>
+          <span className="truncate">{m}</span>
         </button>
       ))}
     </div>
@@ -376,7 +567,15 @@ export default function MainScreen() {
     <main className="relative flex min-h-full flex-col pt-5 sm:h-full sm:pt-6">
       <StatusBar
         callsign={CALLSIGN}
-        tags={[isNoise ? "SCENE NOISE" : "FOCUS MUSIC", mood]}
+        tags={[
+          isNoise ? "SCENE NOISE" : "FOCUS MUSIC",
+          mood,
+          ...(fullMode === "window"
+            ? ["WIN FULL"]
+            : fullMode === "screen"
+              ? ["SCR FULL"]
+              : []),
+        ]}
       />
 
       {/* below the status bar: stacked on phones, two columns on ≥sm,
@@ -398,22 +597,36 @@ export default function MainScreen() {
                 <span className="font-pixel glow-text absolute bottom-2 left-3 text-xs tracking-widest text-ice/90">
                   {formatTime(elapsed)}
                 </span>
-                <span className="font-pixel glow-text absolute right-3 bottom-2 text-xs tracking-widest text-ice/90">
-                  {isNoise ? "∞ LOOP" : formatTime(Math.max(0, duration - elapsed))}
-                </span>
                 <span className="hud-label absolute top-2 left-3 text-[8px]">
                   ▪ {noSignal ? "CH.-- NO SIGNAL" : `VIS.FEED // ${mood}`}
                 </span>
                 <span className="absolute top-2 right-3">
                   <Equalizer playing={playing} />
                 </span>
-                <button
-                  onClick={openTheater}
-                  className="btn-hud absolute right-2 bottom-2 bg-void/60 px-2 py-1 text-[9px]"
-                  aria-label="fullscreen theater mode"
-                >
-                  ⛶ FULL
-                </button>
+                <div className="absolute right-2 bottom-2 flex gap-1">
+                  <button
+                    onClick={() => void enterFull("window")}
+                    className={`btn-hud bg-void/60 px-2 py-1 text-[9px] ${
+                      fullMode === "window" ? "btn-hud-on" : ""
+                    }`}
+                    aria-label="window full screen"
+                    aria-pressed={fullMode === "window"}
+                    title="Window Full — fill the browser window (Esc to exit)"
+                  >
+                    ⛶ WIN
+                  </button>
+                  <button
+                    onClick={() => void enterFull("screen")}
+                    className={`btn-hud bg-void/60 px-2 py-1 text-[9px] ${
+                      fullMode === "screen" ? "btn-hud-on" : ""
+                    }`}
+                    aria-label="screen full — movie mode"
+                    aria-pressed={fullMode === "screen"}
+                    title="Screen Full — movie theater mode (Esc to exit)"
+                  >
+                    ⛶ SCR
+                  </button>
+                </div>
               </div>
             </HudPanel>
           </div>
@@ -426,7 +639,7 @@ export default function MainScreen() {
         {/* ── MOOD SELECT ── */}
         <section>
           <p className="hud-label mb-2 text-[9px]">
-            ▪ MOOD SELECT {mood !== "ALL" && <span className="animate-blink text-glow">▮</span>}
+            ▪ MOOD SELECT <span className="animate-blink text-glow">▮</span>
           </p>
           {moodChips()}
         </section>
@@ -539,7 +752,7 @@ export default function MainScreen() {
               </button>
               <button
                 onClick={togglePlay}
-                className={`btn-hud py-2.5 text-sm ${playing ? "bg-glow text-void border-glow" : ""}`}
+                className={`btn-hud py-2.5 text-sm ${playing ? "btn-hud-on" : ""}`}
                 aria-label={playing ? "pause" : "play"}
               >
                 {playing ? "▮▮ PAUSE" : "◂ PLAY ▸"}
@@ -562,7 +775,7 @@ export default function MainScreen() {
                 <SegmentedBar
                   ratio={volume}
                   segments={20}
-                  height={10}
+                  height={12}
                   onChange={(r) => setVolume(r)}
                   label="volume"
                 />
@@ -597,121 +810,191 @@ export default function MainScreen() {
       </div>
       </div>
 
-      {/* ── THEATER MODE ── */}
-      {theater && track && (
-        <div
-          className="fixed inset-0 z-50 bg-black"
-          data-theme={theme}
-          role="dialog"
-          aria-label="fullscreen theater"
+      {/* ── WINDOW FULL exit chip (normal UI stays; only FS chrome gone) ── */}
+      {fullMode === "window" && (
+        <button
+          onClick={() => void exitFull()}
+          className="btn-hud fixed top-3 right-3 z-40 bg-void/80 px-3 py-2 text-[10px] backdrop-blur-sm"
+          aria-label="exit window full"
+          title="Exit window full (Esc)"
         >
-          {/* full-bleed mood visual */}
-          <div className="absolute inset-0">
-            <VisualFeed
-              track={track}
-              mood={mood}
-              playing={playing}
-              noSignal={noSignal}
-              themeKey={theme}
-            />
-          </div>
-          {/* CRT texture on the theater too */}
-          <div className="crt-layer ovl-scanlines opacity-40" aria-hidden />
-          <div className="crt-layer ovl-vignette" aria-hidden />
-          {/* bottom darkening for the panel */}
-          <div
-            className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5"
-            style={{ background: "linear-gradient(180deg, transparent, rgba(0,0,0,0.82))" }}
-            aria-hidden
-          />
-
-          {/* stretched control panel, lower-center */}
-          <div className="absolute inset-x-0 bottom-0 flex justify-center px-3 pb-4 sm:pb-6">
-            <div className="flex w-full max-w-3xl flex-col gap-3 border border-line bg-void/70 p-4 backdrop-blur-sm">
-              {/* info + exit */}
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="hud-label text-[8px]">
-                    ▮ {sourceTag} · {mood}
-                  </p>
-                  <p className="font-pixel glow-text truncate text-sm font-bold tracking-wider text-ice">
-                    {track.title}
-                  </p>
-                  <p className="hud-label truncate text-[9px]">{track.artist}</p>
-                </div>
-                <button
-                  onClick={closeTheater}
-                  className="btn-hud shrink-0 px-3 py-2 text-[10px]"
-                  aria-label="exit theater"
-                >
-                  ✕ EXIT
-                </button>
-              </div>
-
-              {/* seek */}
-              <div>
-                <SegmentedBar
-                  ratio={duration > 0 ? elapsed / duration : 0}
-                  segments={72}
-                  height={12}
-                  onChange={seek}
-                  label="seek"
-                />
-                <div className="mt-1 flex justify-between">
-                  <span className="font-pixel text-[10px] tracking-widest text-dim">
-                    {formatTime(elapsed)}
-                  </span>
-                  <span className="font-pixel text-[10px] tracking-widest text-dim">
-                    -{isNoise ? "--:--" : formatTime(Math.max(0, duration - elapsed))}
-                  </span>
-                </div>
-              </div>
-
-              {/* transport + volume + sleep, one stretched row */}
-              <div className="grid grid-cols-[auto_auto_auto_1fr_auto] items-center gap-3">
-                <button onClick={() => stepTrack(-1)} className="btn-hud px-3 py-2 text-xs" aria-label="previous track">
-                  ◂◂
-                </button>
-                <button
-                  onClick={togglePlay}
-                  className={`btn-hud px-5 py-2 text-xs ${playing ? "bg-glow text-void border-glow" : ""}`}
-                  aria-label={playing ? "pause" : "play"}
-                >
-                  {playing ? "▮▮" : "▶"}
-                </button>
-                <button onClick={() => stepTrack(1)} className="btn-hud px-3 py-2 text-xs" aria-label="next track">
-                  ▸▸
-                </button>
-                <SegmentedBar
-                  ratio={volume}
-                  segments={24}
-                  height={8}
-                  onChange={(r) => setVolume(r)}
-                  label="volume"
-                />
-                <div className="flex gap-1">
-                  {SLEEP_OPTIONS.map((m) => (
-                    <button
-                      key={m}
-                      onClick={() => pickSleep(sleepMin === m ? null : m)}
-                      className={`border px-1.5 py-1 font-pixel text-[8px] tracking-widest transition-colors ${
-                        sleepMin === m
-                          ? "border-glow bg-glow text-void"
-                          : "border-line text-dim hover:border-linehi hover:text-ice"
-                      }`}
-                    >
-                      {m}M
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* mood chips — switch without leaving the theater */}
-              {moodChips(true)}
-            </div>
-          </div>
-        </div>
+          ✕ EXIT · ESC
+        </button>
       )}
+
+      {/* ── SCREEN FULL — portal to <body> so it escapes the 4:3 CRT box
+          and truly spans the full window (incl. ultrawide). ── */}
+      {fullMode === "screen" &&
+        track &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="theater-stage"
+            data-theme={theme}
+            role="dialog"
+            aria-label="screen full theater"
+            onPointerMove={bumpTheaterPanel}
+            onPointerDown={bumpTheaterPanel}
+            onTouchStart={bumpTheaterPanel}
+            onKeyDown={bumpTheaterPanel}
+          >
+            {/* full-bleed mood visual — 100vw × 100dvh, any aspect */}
+            <div className="theater-visual">
+              <VisualFeed
+                track={track}
+                mood={mood}
+                playing={playing}
+                noSignal={noSignal}
+                themeKey={theme}
+                coverLayout
+              />
+            </div>
+            {/* SCR CRT flicker stack — brightness pulse, flash, rolling band */}
+            <div className="theater-flicker" aria-hidden />
+            <div className="theater-flash" aria-hidden />
+            <div className="theater-band-wrap" aria-hidden>
+              <div className="theater-band" />
+            </div>
+            <div className="crt-layer ovl-scanlines opacity-30" aria-hidden />
+            <div className="crt-layer theater-edge-fade" aria-hidden />
+
+            {/* invisible bottom hit strip — easy reveal when dock is auto-hidden */}
+            {!panelVisible && !panelPinned && (
+              <button
+                type="button"
+                className="absolute inset-x-0 bottom-0 z-20 h-16 cursor-default bg-transparent"
+                aria-label="show controls"
+                onPointerDown={bumpTheaterPanel}
+              />
+            )}
+
+            <div
+              className={`absolute inset-x-0 bottom-[10%] z-10 flex justify-center px-3 transition-all duration-500 sm:bottom-[12%] ${
+                panelVisible || panelPinned
+                  ? "translate-y-0 opacity-100"
+                  : "pointer-events-none translate-y-3 opacity-0"
+              }`}
+            >
+              <div
+                className="theater-dock flex w-full max-w-3xl flex-col gap-3 border border-linehi p-4 shadow-[0_0_0_1px_rgba(0,0,0,0.6),0_12px_40px_rgba(0,0,0,0.75)]"
+                style={{ background: "color-mix(in srgb, var(--color-void) 94%, black)" }}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-plex text-[9px] tracking-[0.2em] text-ice/80 uppercase">
+                      ▮ {sourceTag} · {mood} · SCR FULL
+                    </p>
+                    <p className="font-pixel glow-text truncate text-base font-bold tracking-wider text-ice sm:text-lg">
+                      {track.title}
+                    </p>
+                    <p className="font-plex truncate text-[11px] tracking-widest text-fg/80 uppercase">
+                      {track.artist}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPanelPinned((p) => !p);
+                        setPanelVisible(true);
+                      }}
+                      className={`btn-hud border-linehi px-3 py-2 text-[10px] ${
+                        panelPinned ? "btn-hud-on" : "bg-panel2 text-ice"
+                      }`}
+                      aria-label={panelPinned ? "unpin control panel" : "pin control panel"}
+                      aria-pressed={panelPinned}
+                      title={
+                        panelPinned
+                          ? "Pinned — panel stays on screen"
+                          : "Unpinned — hides after 20s idle"
+                      }
+                    >
+                      {panelPinned ? "▣ PIN" : "▢ PIN"}
+                    </button>
+                    <button
+                      onClick={() => void exitFull()}
+                      className="btn-hud border-linehi bg-panel2 px-3 py-2 text-[10px] text-ice"
+                      aria-label="exit screen full"
+                    >
+                      ✕ EXIT · ESC
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <SegmentedBar
+                    ratio={duration > 0 ? elapsed / duration : 0}
+                    segments={72}
+                    height={12}
+                    onChange={seek}
+                    label="seek"
+                    bright
+                  />
+                  <div className="mt-1 flex justify-between">
+                    <span className="font-pixel text-[11px] tracking-widest text-ice/90">
+                      {formatTime(elapsed)}
+                    </span>
+                    <span className="font-pixel text-[11px] tracking-widest text-ice/70">
+                      -{isNoise ? "--:--" : formatTime(Math.max(0, duration - elapsed))}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-[auto_auto_auto_1fr_auto] items-center gap-3">
+                  <button
+                    onClick={() => stepTrack(-1)}
+                    className="btn-hud border-linehi bg-panel2 px-3 py-2 text-xs text-ice"
+                    aria-label="previous track"
+                  >
+                    ◂◂
+                  </button>
+                  <button
+                    onClick={togglePlay}
+                    className={`btn-hud px-5 py-2 text-xs ${
+                      playing ? "btn-hud-on" : "border-linehi bg-panel2 text-ice"
+                    }`}
+                    aria-label={playing ? "pause" : "play"}
+                  >
+                    {playing ? "▮▮" : "▶"}
+                  </button>
+                  <button
+                    onClick={() => stepTrack(1)}
+                    className="btn-hud border-linehi bg-panel2 px-3 py-2 text-xs text-ice"
+                    aria-label="next track"
+                  >
+                    ▸▸
+                  </button>
+                  <SegmentedBar
+                    ratio={volume}
+                    segments={24}
+                    height={12}
+                    onChange={(r) => setVolume(r)}
+                    label="volume"
+                    bright
+                  />
+                  <div className="flex gap-1">
+                    {SLEEP_OPTIONS.map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => pickSleep(sleepMin === m ? null : m)}
+                        className={`border px-1.5 py-1.5 font-pixel text-[9px] tracking-widest transition-colors ${
+                          sleepMin === m
+                            ? "border-glow bg-glow text-void"
+                            : "border-linehi bg-panel2 text-ice hover:border-glow hover:text-fg"
+                        }`}
+                      >
+                        {m}M
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {moodChips(true)}
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </main>
   );
 }

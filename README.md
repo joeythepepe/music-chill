@@ -54,14 +54,12 @@ plus faint scanlines and slow-drifting grain (≤0.05 opacity).
 No filter hacks — each mood sets `data-theme` on the screen root and every
 color comes from CSS vars (`src/app/globals.css`):
 
-| Theme   | Moods        | Palette                    |
-| ------- | ------------ | -------------------------- |
-| `ice`   | ALL · NIGHT  | phosphor ice-cyan          |
-| `rain`  | RAIN         | steel cyan                 |
-| `calm`  | CALM         | phosphor green             |
-| `deep`  | DEEP         | amber                      |
-| `dream` | DREAM        | magenta/pink               |
-| `drive` | DRIVE        | hot magenta-red            |
+| Theme       | Moods        | Palette                    |
+| ----------- | ------------ | -------------------------- |
+| `calm`      | CALM         | phosphor green             |
+| `space`     | OUTER SPACE  | violet / purple            |
+| `cyberpunk` | CYBERPUNK    | hot magenta-red            |
+| `rain`      | RAIN         | steel cyan                 |
 
 Canvas animations, EQ bars, test-card caption, art duotone washes and the
 text bloom all follow the active theme. Switching mood = static burst +
@@ -77,8 +75,8 @@ The visual panel + theater play per-mood cover art:
 3. Priority: cover video → track art / cover image → NO SIGNAL test card →
    generated pixel animation. Everything renders `image-rendering: pixelated`.
 
-Per-mood generated animations: RAIN→rain, NIGHT/DEEP→starfield,
-CALM/DREAM→waveform, DRIVE→speed lines.
+Per-mood generated animations: RAIN→rain, OUTER SPACE→starfield,
+CALM→waveform, CYBERPUNK→speed lines.
 
 ## Theater mode
 

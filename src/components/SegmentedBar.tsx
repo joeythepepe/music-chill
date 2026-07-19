@@ -5,6 +5,8 @@ import { useCallback, useRef } from "react";
 /**
  * Blocky segmented bar (progress / volume) — a row of small blocks
  * like the reference's temperature scale. Click / drag to set value.
+ *
+ * Segments fill the full track width so click X maps 1:1 to the visual bar.
  */
 export default function SegmentedBar({
   ratio,
@@ -12,6 +14,8 @@ export default function SegmentedBar({
   height = 16,
   onChange,
   label,
+  /** stronger empty segments for dark overlays (theater dock) */
+  bright = false,
 }: {
   /** 0..1 */
   ratio: number;
@@ -19,15 +23,17 @@ export default function SegmentedBar({
   height?: number;
   onChange?: (ratio: number) => void;
   label?: string;
+  bright?: boolean;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
-  const dragging = useRef(false);
+  const dragPointerId = useRef<number | null>(null);
 
   const setFromClientX = useCallback(
     (clientX: number) => {
       const el = trackRef.current;
       if (!el || !onChange) return;
       const rect = el.getBoundingClientRect();
+      if (rect.width <= 0) return;
       const r = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
       onChange(r);
     },
@@ -35,48 +41,83 @@ export default function SegmentedBar({
   );
 
   const filled = Math.round(ratio * segments);
+  const interactive = Boolean(onChange);
 
   return (
+    // Outer shell expands the vertical hit target without changing the visual height.
     <div
-      ref={trackRef}
-      role={onChange ? "slider" : undefined}
+      role={interactive ? "slider" : undefined}
       aria-label={label}
-      aria-valuenow={onChange ? Math.round(ratio * 100) : undefined}
-      className={`flex w-full items-stretch gap-[3px] ${onChange ? "cursor-pointer touch-none" : ""}`}
-      style={{ height }}
+      aria-valuemin={interactive ? 0 : undefined}
+      aria-valuemax={interactive ? 100 : undefined}
+      aria-valuenow={interactive ? Math.round(ratio * 100) : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      className={`w-full select-none ${interactive ? "cursor-pointer touch-none py-2 -my-2" : ""}`}
       onPointerDown={(e) => {
         if (!onChange) return;
-        dragging.current = true;
-        (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+        e.preventDefault();
+        dragPointerId.current = e.pointerId;
+        e.currentTarget.setPointerCapture(e.pointerId);
         setFromClientX(e.clientX);
       }}
       onPointerMove={(e) => {
-        if (dragging.current) setFromClientX(e.clientX);
+        if (dragPointerId.current !== e.pointerId) return;
+        setFromClientX(e.clientX);
       }}
-      onPointerUp={() => {
-        dragging.current = false;
+      onPointerUp={(e) => {
+        if (dragPointerId.current !== e.pointerId) return;
+        dragPointerId.current = null;
+        if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+          e.currentTarget.releasePointerCapture(e.pointerId);
+        }
       }}
-      onPointerCancel={() => {
-        dragging.current = false;
+      onPointerCancel={(e) => {
+        if (dragPointerId.current !== e.pointerId) return;
+        dragPointerId.current = null;
+      }}
+      onKeyDown={(e) => {
+        if (!onChange) return;
+        const step = e.shiftKey ? 0.1 : 0.05;
+        if (e.key === "ArrowRight" || e.key === "ArrowUp") {
+          e.preventDefault();
+          onChange(Math.min(1, ratio + step));
+        } else if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
+          e.preventDefault();
+          onChange(Math.max(0, ratio - step));
+        } else if (e.key === "Home") {
+          e.preventDefault();
+          onChange(0);
+        } else if (e.key === "End") {
+          e.preventDefault();
+          onChange(1);
+        }
       }}
     >
-      {Array.from({ length: segments }, (_, i) => {
-        const isFilled = i < filled;
-        const isHead = i === filled - 1;
-        return (
-          <span
-            key={i}
-            className={
-              isFilled
-                ? isHead
-                  ? "bg-glow shadow-[0_0_6px_rgba(103,232,249,0.7)]"
-                  : "bg-ice/80"
-                : "bg-line/50"
-            }
-            style={{ width: 3 }}
-          />
-        );
-      })}
+      <div
+        ref={trackRef}
+        className="flex w-full items-stretch gap-[2px]"
+        style={{ height }}
+        aria-hidden
+      >
+        {Array.from({ length: segments }, (_, i) => {
+          const isFilled = i < filled;
+          const isHead = i === filled - 1;
+          return (
+            <span
+              key={i}
+              className={
+                isFilled
+                  ? isHead
+                    ? "min-w-0 flex-1 bg-glow shadow-[0_0_6px_rgba(103,232,249,0.7)]"
+                    : "min-w-0 flex-1 bg-ice/80"
+                  : bright
+                    ? "min-w-0 flex-1 bg-linehi/70"
+                    : "min-w-0 flex-1 bg-line/50"
+              }
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }
