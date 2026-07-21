@@ -20,7 +20,7 @@ import {
   type Mood,
   type Track,
 } from "@/lib/tracks";
-import { CALLSIGN, getState, saveState } from "@/lib/session";
+import { CALLSIGN, getState, saveState, PLAY_MODES, PLAY_MODE_LABEL, PLAY_MODE_TITLE, type PlayMode } from "@/lib/session";
 import { useNoiseEngine } from "@/lib/noiseEngine";
 import { useTv } from "@/lib/tv";
 import {
@@ -207,6 +207,7 @@ export default function MainScreen() {
   const [ready, setReady] = useState(false);
   const [mood, setMood] = useState<Mood>(MOODS[0]);
   const [trackId, setTrackId] = useState<string | null>(null);
+  const [playMode, setPlayMode] = useState<PlayMode>("sequence");
 
   const [playing, setPlaying] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -226,8 +227,10 @@ export default function MainScreen() {
   const fullModeRef = useRef<FullMode>("none");
   const panelPinnedRef = useRef(false);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const playModeRef = useRef<PlayMode>(playMode);
   fullModeRef.current = fullMode;
   panelPinnedRef.current = panelPinned;
+  playModeRef.current = playMode;
 
   // ── restore persisted state ──
   // Track is restored from the full library (not just the mood filter), so empty
@@ -256,6 +259,7 @@ export default function MainScreen() {
     setMood(validMood);
     setTheme(moodTheme(validMood));
     setTrackId(fallback?.id ?? null);
+    setPlayMode(s.playMode);
     setReady(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -317,13 +321,10 @@ export default function MainScreen() {
       if (!Number.isNaN(a.currentTime)) setElapsed(a.currentTime);
     };
     const onEnded = () => {
-      // advance within the mood filter list when possible; otherwise first of filter
-      const idx = queue.findIndex((t) => t.id === trackId);
-      if (queue.length === 0) return;
-      const next = idx >= 0 ? (idx + 1) % queue.length : 0;
-      selectTrack(next, true);
+      advanceTrack(true);
     };
 
+    a.loop = playModeRef.current === "loop";
     a.addEventListener("loadedmetadata", onMeta);
     a.addEventListener("error", onError);
     a.addEventListener("timeupdate", onTime);
@@ -368,12 +369,7 @@ export default function MainScreen() {
         const next = e + 0.5;
         if (next >= duration) {
           if (isNoise) return 0; // endless ambience loops
-          setTimeout(() => {
-            const idx = queue.findIndex((t) => t.id === trackId);
-            if (queue.length === 0) return;
-            const nextIdx = idx >= 0 ? (idx + 1) % queue.length : 0;
-            selectTrack(nextIdx, true);
-          }, 0);
+          setTimeout(() => advanceTrack(true), 0);
           return 0;
         }
         return next;
@@ -413,16 +409,78 @@ export default function MainScreen() {
     [queue],
   );
 
+  /** pick next index for auto-advance (respects play mode) */
+  const advanceTrack = useCallback(
+    (autoplay = true) => {
+      if (queue.length === 0) return;
+      const mode = playModeRef.current;
+      const idx = queue.findIndex((t) => t.id === trackId);
+
+      if (mode === "loop") {
+        // restart current; if not in this mood list, land on first
+        if (idx < 0) {
+          selectTrack(0, autoplay);
+          return;
+        }
+        const a = audioRef.current;
+        if (a) {
+          a.currentTime = 0;
+          if (autoplay) void a.play().catch(() => setSimulated(true));
+        }
+        setElapsed(0);
+        if (autoplay) setPlaying(true);
+        return;
+      }
+
+      if (mode === "random") {
+        if (queue.length === 1) {
+          selectTrack(0, autoplay);
+          return;
+        }
+        let next = Math.floor(Math.random() * queue.length);
+        while (next === idx) next = Math.floor(Math.random() * queue.length);
+        selectTrack(next, autoplay);
+        return;
+      }
+
+      // sequence
+      const next = idx >= 0 ? (idx + 1) % queue.length : 0;
+      selectTrack(next, autoplay);
+    },
+    [queue, trackId, selectTrack],
+  );
+
   const stepTrack = useCallback(
     (d: 1 | -1) => {
       if (queue.length === 0) return;
       staticBurst();
-      // If now-playing isn't in this mood list, prev/next enters the filtered list.
+      // Manual prev/next: random mode shuffles forward; otherwise sequential.
+      // One-loop still allows skipping via transport.
+      if (d === 1 && playModeRef.current === "random" && queue.length > 1) {
+        let next = Math.floor(Math.random() * queue.length);
+        while (next === trackIndex) next = Math.floor(Math.random() * queue.length);
+        selectTrack(next, true);
+        return;
+      }
       const idx = trackIndex >= 0 ? trackIndex : d === 1 ? -1 : 0;
       selectTrack((idx + d + queue.length) % queue.length, true);
     },
     [queue.length, trackIndex, selectTrack, staticBurst],
   );
+
+  const cyclePlayMode = useCallback(() => {
+    setPlayMode((m) => {
+      const i = PLAY_MODES.indexOf(m);
+      const next = PLAY_MODES[(i + 1) % PLAY_MODES.length];
+      saveState({ playMode: next });
+      return next;
+    });
+  }, []);
+
+  // keep <audio>.loop in sync when mode toggles mid-track
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.loop = playMode === "loop";
+  }, [playMode]);
 
   const togglePlay = useCallback(() => {
     if (track) setPlaying((p) => !p);
@@ -678,10 +736,21 @@ export default function MainScreen() {
 
         {/* ── PLAYLIST ── */}
         <section className="min-h-0 sm:flex sm:flex-1 sm:flex-col">
-          <p className="hud-label mb-2 text-[9px]">
-            ▪ PLAYLIST // {queue.length} CH ·{" "}
-            <span className="text-ice/70">SPACE = PLAY/PAUSE</span>
-          </p>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="hud-label min-w-0 truncate text-[9px]">
+              ▪ PLAYLIST // {queue.length} CH ·{" "}
+              <span className="text-ice/70">SPACE = PLAY/PAUSE</span>
+            </p>
+            <button
+              type="button"
+              onClick={cyclePlayMode}
+              className="btn-hud shrink-0 px-2 py-1 text-[9px] tracking-widest"
+              aria-label={`Play mode: ${PLAY_MODE_TITLE[playMode]}. Click to cycle.`}
+              title={`${PLAY_MODE_TITLE[playMode]} — click to cycle`}
+            >
+              {PLAY_MODE_LABEL[playMode]}
+            </button>
+          </div>
           {queue.length === 0 ? (
             <div className="border border-line bg-panel/60 px-3 py-6 text-center">
               <p className="font-pixel text-[10px] tracking-widest text-dim">
