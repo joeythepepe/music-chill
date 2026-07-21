@@ -155,6 +155,7 @@ export const TRACKS: Track[] = [
   // ── CYBERPUNK (drive) ──
   ...music("CYBERPUNK", "drive", [
     ["grid-runner", "GRID RUNNER", "Joey G. CHOU", "grid-runner.mp3", 167],
+    ["prophet-rain", "PROPHET RAIN", "Joey G. CHOU", "prophet-rain.mp3", 173],
   ]),
 
   // ── RAIN — add focus music under public/audio/focus/ when ready ──
