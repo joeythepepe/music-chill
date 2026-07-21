@@ -48,11 +48,41 @@
   --color-linehi: #2a4a62;
 }
 
+/* Fusion Pixel — pan-CJK bitmap face (OFL) for JP/CN titles that
+   Silkscreen / Plex Mono cannot render. Same-family @font-face files
+   with unicode-range so the browser only pulls the scripts in use. */
+@font-face {
+  font-family: "Fusion Pixel";
+  src: url("/fonts/fusion-pixel-12px-ja.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+3000-303F, U+3040-309F, U+30A0-30FF, U+31F0-31FF,
+    U+FF00-FFEF, U+4E00-9FFF, U+3400-4DBF, U+F900-FAFF;
+}
+@font-face {
+  font-family: "Fusion Pixel";
+  src: url("/fonts/fusion-pixel-12px-zh-hans.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+4E00-9FFF, U+3400-4DBF, U+F900-FAFF;
+}
+@font-face {
+  font-family: "Fusion Pixel";
+  src: url("/fonts/fusion-pixel-12px-zh-hant.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+4E00-9FFF, U+3400-4DBF, U+F900-FAFF;
+}
+
 .font-pixel {
-  font-family: var(--font-silkscreen), "IBM Plex Mono", monospace;
+  font-family: var(--font-silkscreen), "Fusion Pixel", "IBM Plex Mono",
+    monospace;
 }
 .font-plex {
-  font-family: var(--font-plex), monospace;
+  font-family: var(--font-plex), "Fusion Pixel", monospace;
 }
 
 html,
@@ -67,7 +97,7 @@ body {
     #030407 100%
   );
   color: var(--color-fg);
-  font-family: var(--font-plex), monospace;
+  font-family: var(--font-plex), "Fusion Pixel", monospace;
   -webkit-font-smoothing: antialiased;
 }
 

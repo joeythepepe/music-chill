@@ -14,6 +14,7 @@ import {
   TRACKS,
   filterTracks,
   formatTime,
+  hasCjk,
   moodTheme,
   moodVisual,
   type Mood,
@@ -711,9 +712,9 @@ export default function MainScreen() {
                       </span>
                       <span className="min-w-0 flex-1">
                         <span
-                          className={`block truncate text-[11px] tracking-widest ${
-                            activeTrack ? "text-ice" : "text-fg/80"
-                          }`}
+                          className={`block truncate text-[11px] ${
+                            hasCjk(t.title) ? "tracking-normal" : "tracking-widest"
+                          } ${activeTrack ? "text-ice" : "text-fg/80"}`}
                         >
                           {activeTrack && playing ? "▮ " : ""}
                           {t.title}
@@ -743,7 +744,11 @@ export default function MainScreen() {
                 <p className="hud-label text-[9px]">
                   ▮ NOW PLAYING <span className="text-ice/70">// {sourceTag}</span>
                 </p>
-                <h1 className="font-pixel glow-text mt-1 truncate text-base font-bold tracking-wider text-ice">
+                <h1
+                  className={`font-pixel glow-text mt-1 truncate text-base font-bold text-ice ${
+                    hasCjk(track.title) ? "tracking-normal" : "tracking-wider"
+                  }`}
+                >
                   {track.title}
                 </h1>
                 <p className="hud-label mt-0.5 truncate">{track.artist}</p>
@@ -915,7 +920,11 @@ export default function MainScreen() {
                     <p className="font-plex text-[9px] tracking-[0.2em] text-ice/80 uppercase">
                       ▮ {sourceTag} · {mood} · SCR FULL
                     </p>
-                    <p className="font-pixel glow-text truncate text-base font-bold tracking-wider text-ice sm:text-lg">
+                    <p
+                      className={`font-pixel glow-text truncate text-base font-bold text-ice sm:text-lg ${
+                        hasCjk(track.title) ? "tracking-normal" : "tracking-wider"
+                      }`}
+                    >
                       {track.title}
                     </p>
                     <p className="font-plex truncate text-[11px] tracking-widest text-fg/80 uppercase">

@@ -156,6 +156,7 @@ export const TRACKS: Track[] = [
   ...music("CYBERPUNK", "drive", [
     ["grid-runner", "GRID RUNNER", "Joey G. CHOU", "grid-runner.mp3", 167],
     ["prophet-rain", "PROPHET RAIN", "Joey G. CHOU", "prophet-rain.mp3", 173],
+    ["neon-no-urin", "ネオンの雨林", "Joey G. CHOU", "neon-no-urin.mp3", 176],
   ]),
 
   // ── RAIN — add focus music under public/audio/focus/ when ready ──
@@ -171,4 +172,9 @@ export function formatTime(sec: number): string {
   const m = Math.floor(sec / 60);
   const s = Math.floor(sec % 60);
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+/** true when title needs the CJK pixel fallback (JP/CN/etc.) */
+export function hasCjk(text: string): boolean {
+  return /[\u3000-\u303f\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff]/.test(text);
 }
