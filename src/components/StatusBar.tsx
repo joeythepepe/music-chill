@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AboutMenu from "@/components/AboutMenu";
+import DevLogMenu from "@/components/DevLogMenu";
 
 type BatteryInfo = {
   level: number; // 0..1
@@ -166,7 +167,10 @@ export default function StatusBar({
             --% ▮
           </span>
         )}
-        <AboutMenu />
+        <div className="flex items-center gap-1.5">
+          <AboutMenu />
+          <DevLogMenu />
+        </div>
       </div>
     </header>
   );

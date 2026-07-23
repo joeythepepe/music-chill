@@ -37,7 +37,7 @@ directory (`app/`).
 ## Conventions
 
 - **Themes are per-mood CSS variable sets** in `src/app/globals.css`
-  (`[data-theme="..."]`, e.g. `rain`, `calm`, `deep`, `dream`, `drive`).
+  (`[data-theme="..."]`, e.g. `calm`, `cyberpunk`, `dawn`).
   Components consume `--color-glow`, `--color-ice`, `--color-dim`, etc. —
   add styles by theme token, not hard-coded colors.
 - **Mood chips and icons**: moods are defined in `src/lib/tracks.ts`

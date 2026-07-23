@@ -1,0 +1,77 @@
+{
+  "generatedAt": "2026-07-23T16:12:56.154Z",
+  "commits": [
+    {
+      "fullHash": "4bf047d1b0019f37529b7fbee48757f008e3473e",
+      "hash": "4bf047d",
+      "date": "2026-07-22",
+      "subject": "Add playlist play-mode control for sequence, one-loop, and random."
+    },
+    {
+      "fullHash": "ca2193bf8a5b7449c4f1e0eef721710714e91afe",
+      "hash": "ca2193b",
+      "date": "2026-07-22",
+      "subject": "Remove channel-change click sound effects."
+    },
+    {
+      "fullHash": "e13ac27879e99a2c41a69fc5f82265a1b747494a",
+      "hash": "e13ac27",
+      "date": "2026-07-22",
+      "subject": "Add ネオンの雨林 and Fusion Pixel CJK fallback for JP/CN titles."
+    },
+    {
+      "fullHash": "f790218e4c0ea6d5260d03415a63fc8ea5eb1995",
+      "hash": "f790218",
+      "date": "2026-07-22",
+      "subject": "Add PROPHET RAIN to the CYBERPUNK mood playlist."
+    },
+    {
+      "fullHash": "ec2c500bc86184b2321d4c8ad6c6c21fa2cdd917",
+      "hash": "ec2c500",
+      "date": "2026-07-22",
+      "subject": "Rebrand to Musicyber with dual design/music credits."
+    },
+    {
+      "fullHash": "e70ba382a5eb1b6a15d6ab90f9cbd95b2bafd03b",
+      "hash": "e70ba38",
+      "date": "2026-07-20",
+      "subject": "Polish about menu: copy email, mood theme, top-right placement."
+    },
+    {
+      "fullHash": "a4890b7f82f167043155fefb8e6fc9eb1c47ba3e",
+      "hash": "a4890b7",
+      "date": "2026-07-20",
+      "subject": "Fix floating about menu and empty-mood player restore on reload."
+    },
+    {
+      "fullHash": "3aa501111b908725069558d11befeed4a1aa97d5",
+      "hash": "3aa5011",
+      "date": "2026-07-20",
+      "subject": "Fix Mood state typing so production TypeScript build passes."
+    },
+    {
+      "fullHash": "ff7dacfe9eedd003f47e29cadcb42d1f15e190d6",
+      "hash": "ff7dacf",
+      "date": "2026-07-20",
+      "subject": "Ship CHILL//OS: real tracks, SCR modes, mood covers, about panel."
+    },
+    {
+      "fullHash": "013175d4d4e8a78c977c3429aeda6eb88cdb485c",
+      "hash": "013175d",
+      "date": "2026-07-19",
+      "subject": "docs: expand AGENTS.md with project guide for other agents"
+    },
+    {
+      "fullHash": "ac16611f2dfc8b46c9998cf2f98dbc6fa698f2b1",
+      "hash": "ac16611",
+      "date": "2026-07-19",
+      "subject": "feat: larger mood names with pixel-art leading icons"
+    },
+    {
+      "fullHash": "d922c58299b2441173cd4f20785019db1d4057fd",
+      "hash": "d922c58",
+      "date": "2026-07-18",
+      "subject": "Initial commit from Create Next App"
+    }
+  ]
+}

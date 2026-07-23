@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "devlog": "node scripts/generate-devlog.mjs",
+    "predev": "node scripts/generate-devlog.mjs",
+    "prebuild": "node scripts/generate-devlog.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

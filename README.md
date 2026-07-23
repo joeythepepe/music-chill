@@ -59,9 +59,8 @@ color comes from CSS vars (`src/app/globals.css`):
 | Theme       | Moods        | Palette                    |
 | ----------- | ------------ | -------------------------- |
 | `calm`      | CALM         | phosphor green             |
-| `space`     | OUTER SPACE  | violet / purple            |
 | `cyberpunk` | CYBERPUNK    | hot magenta-red            |
-| `rain`      | RAIN         | steel cyan                 |
+| `dawn`      | DAWN         | warm amber                 |
 
 Canvas animations, EQ bars, test-card caption, art duotone washes and the
 text bloom all follow the active theme. Switching mood = static burst +
@@ -73,11 +72,11 @@ The visual panel + theater play per-mood cover art:
 
 1. Drop files into **`public/covers/`** (video loops `.mp4` or images `.gif/.png`).
 2. Register them in **`MOOD_COVERS`** in `src/lib/tracks.ts`:
-   `RAIN: { video: "/covers/rain-loop.mp4" }` or `CALM: { img: "/covers/calm.gif" }`.
+   `DAWN: { video: "/covers/dawn-loop.mp4" }` or `CALM: { img: "/covers/calm.gif" }`.
 3. Priority: cover video → track art / cover image → NO SIGNAL test card →
    generated pixel animation. Everything renders `image-rendering: pixelated`.
 
-Per-mood generated animations: RAIN→rain, OUTER SPACE→starfield,
+Per-mood generated animations: DAWN→pixel sunrise over sea,
 CALM→waveform, CYBERPUNK→speed lines.
 
 ## Theater mode

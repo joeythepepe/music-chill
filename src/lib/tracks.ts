@@ -34,10 +34,10 @@ export type NoiseVariant =
   | "ocean"
   | "deepspace";
 
-export type VisualKind = "rain" | "stars" | "wave" | "drive";
+export type VisualKind = "rain" | "stars" | "wave" | "drive" | "sunrise";
 
 /** global mood list — chips on the main screen */
-export const MOODS = ["CALM", "OUTER SPACE", "CYBERPUNK", "RAIN"] as const;
+export const MOODS = ["CALM", "CYBERPUNK", "DAWN"] as const;
 export type Mood = (typeof MOODS)[number];
 
 /** mood → site-wide theme key (matches [data-theme] in globals.css) */
@@ -45,12 +45,10 @@ export function moodTheme(mood: string): string {
   switch (mood) {
     case "CALM":
       return "calm";
-    case "OUTER SPACE":
-      return "space";
     case "CYBERPUNK":
       return "cyberpunk";
-    case "RAIN":
-      return "rain";
+    case "DAWN":
+      return "dawn";
     default:
       return "calm";
   }
@@ -59,10 +57,8 @@ export function moodTheme(mood: string): string {
 /** mood → generated pixel animation for the visual panel */
 export function moodVisual(mood: string): VisualKind {
   switch (mood) {
-    case "RAIN":
-      return "rain";
-    case "OUTER SPACE":
-      return "stars";
+    case "DAWN":
+      return "sunrise";
     case "CYBERPUNK":
       return "drive";
     case "CALM":
@@ -76,14 +72,13 @@ export function moodVisual(mood: string): VisualKind {
 // Drop files into public/covers/ and register them here.
 // Priority per mood: video loop → image (gif/png) → generated
 // pixel animation. Example:
-//   RAIN: { video: "/covers/rain-loop.mp4" },
+//   DAWN: { video: "/covers/dawn-loop.mp4" },
 //   CALM: { img: "/covers/calm-forest.gif" },
 // ─────────────────────────────────────────────────────────────
 export const MOOD_COVERS: Record<string, { img?: string; video?: string }> = {
   // CALM: { img: "/covers/calm.gif" },
-  // "OUTER SPACE": { video: "/covers/space-loop.mp4" },
   CYBERPUNK: { video: "/covers/cyberpunk-loop.mp4" },
-  // RAIN: { video: "/covers/rain-loop.mp4" },
+  // DAWN: { video: "/covers/dawn-loop.mp4" },
 };
 
 export interface Track {
@@ -150,8 +145,6 @@ export const TRACKS: Track[] = [
     ["void-logic", "VOID LOGIC", "Joey G. CHOU", "void-logic.mp3", 156],
   ]),
 
-  // ── OUTER SPACE — add focus music under public/audio/focus/ when ready ──
-
   // ── CYBERPUNK (drive) ──
   ...music("CYBERPUNK", "drive", [
     ["grid-runner", "GRID RUNNER", "Joey G. CHOU", "grid-runner.mp3", 167],
@@ -159,7 +152,10 @@ export const TRACKS: Track[] = [
     ["neon-no-urin", "ネオンの雨林", "Joey G. CHOU", "neon-no-urin.mp3", 176],
   ]),
 
-  // ── RAIN — add focus music under public/audio/focus/ when ready ──
+  // ── DAWN (pixel sunrise over sea) ──
+  ...music("DAWN", "sunrise", [
+    ["stop-the-rain", "STOP THE RAIN", "Joey G. CHOU", "stop-the-rain.mp3", 175],
+  ]),
 ];
 
 /** playlist for a mood chip */

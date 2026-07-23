@@ -23,14 +23,6 @@
   --color-line: #14301f;
   --color-linehi: #2a5a3c;
 }
-[data-theme="space"] {
-  --color-ice: #c4b5fd;
-  --color-glow: #a78bfa;
-  --color-fg: #e9e4f7;
-  --color-dim: #6b5f8a;
-  --color-line: #1f1633;
-  --color-linehi: #3d2a5a;
-}
 [data-theme="cyberpunk"] {
   --color-ice: #ffc6cc;
   --color-glow: #ff4d5e;
@@ -39,13 +31,13 @@
   --color-line: #331216;
   --color-linehi: #5a2028;
 }
-[data-theme="rain"] {
-  --color-ice: #9fd4e8;
-  --color-glow: #5fc4de;
-  --color-fg: #d4ebf5;
-  --color-dim: #4d6a7c;
-  --color-line: #16283a;
-  --color-linehi: #2a4a62;
+[data-theme="dawn"] {
+  --color-ice: #ffe4a8;
+  --color-glow: #ffb84d;
+  --color-fg: #fff0d4;
+  --color-dim: #8a7040;
+  --color-line: #332616;
+  --color-linehi: #5a4020;
 }
 
 /* Fusion Pixel — pan-CJK bitmap face (OFL) for JP/CN titles that
@@ -822,6 +814,93 @@ body {
 .about-link:focus-visible {
   outline: 1px solid var(--color-glow);
   outline-offset: 2px;
+}
+
+/* ─── devlog tree (git work log popover) ──────────────────── */
+.devlog-tree {
+  max-height: min(18rem, 52vh);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 0.15rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-linehi) transparent;
+}
+.devlog-day + .devlog-day {
+  margin-top: 0.35rem;
+}
+.devlog-day-head {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+.devlog-day-mark {
+  flex-shrink: 0;
+  font-family: var(--font-plex), monospace;
+  font-size: 9px;
+  line-height: 1;
+  color: var(--color-glow);
+}
+.devlog-day-label {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-silkscreen), monospace;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--color-ice);
+  line-height: 1.2;
+}
+.devlog-day-count {
+  flex-shrink: 0;
+  border: 1px solid var(--color-line);
+  padding: 0.05rem 0.3rem;
+  font-family: var(--font-plex), monospace;
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  color: var(--color-dim);
+  line-height: 1.2;
+}
+.devlog-commits {
+  margin-top: 0.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.devlog-commit {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.3rem;
+  min-width: 0;
+  padding: 0.2rem 0.15rem 0.2rem 0;
+}
+.devlog-rail {
+  flex-shrink: 0;
+  width: 0.7rem;
+  text-align: center;
+  font-family: var(--font-plex), monospace;
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--color-linehi);
+  user-select: none;
+}
+.devlog-hash {
+  flex-shrink: 0;
+  margin-top: 1px;
+  font-family: var(--font-plex), monospace;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: var(--color-glow);
+  line-height: 1.35;
+}
+.devlog-subject {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-plex), monospace;
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--color-fg);
+  line-height: 1.35;
+  word-break: break-word;
 }
 
 /* on-screen buttons (inside the CRT picture) */

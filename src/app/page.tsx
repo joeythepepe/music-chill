@@ -234,7 +234,7 @@ export default function MainScreen() {
 
   // ── restore persisted state ──
   // Track is restored from the full library (not just the mood filter), so empty
-  // channels (RAIN / OUTER SPACE) or deleted synth ids never leave the player blank.
+    // channels (DAWN / empty moods) or deleted synth ids never leave the player blank.
   useEffect(() => {
     const s = getState();
     let validMood: Mood = (MOODS as readonly string[]).includes(s.mood)
@@ -401,12 +401,23 @@ export default function MainScreen() {
     (idx: number, autoplay = false) => {
       const t = queue[idx];
       if (!t) return;
+      const same = t.id === trackId;
       setTrackId(t.id);
       setElapsed(0);
       if (autoplay) setPlaying(true);
       saveState({ trackId: t.id });
+
+      // Same trackId does not remount <audio> — restart in place so
+      // re-select / one-song auto-advance / double-click all work.
+      if (same) {
+        const a = audioRef.current;
+        if (a) {
+          a.currentTime = 0;
+          if (autoplay) void a.play().catch(() => setSimulated(true));
+        }
+      }
     },
-    [queue],
+    [queue, trackId],
   );
 
   /** pick next index for auto-advance (respects play mode) */
@@ -658,7 +669,6 @@ export default function MainScreen() {
       <StatusBar
         callsign={CALLSIGN}
         tags={[
-          isNoise ? "SCENE NOISE" : "FOCUS MUSIC",
           mood,
           ...(fullMode === "window"
             ? ["WIN FULL"]
@@ -739,7 +749,7 @@ export default function MainScreen() {
           <div className="mb-2 flex items-center justify-between gap-2">
             <p className="hud-label min-w-0 truncate text-[9px]">
               ▪ PLAYLIST // {queue.length} CH ·{" "}
-              <span className="text-ice/70">SPACE = PLAY/PAUSE</span>
+              <span className="text-ice/70">DBL-CLICK = PLAY · SPACE = PLAY/PAUSE</span>
             </p>
             <button
               type="button"
@@ -764,7 +774,9 @@ export default function MainScreen() {
                 return (
                   <li key={t.id}>
                     <button
-                      onClick={() => {
+                      type="button"
+                      title="Double-click to play"
+                      onDoubleClick={() => {
                         staticBurst();
                         selectTrack(i, true);
                       }}
